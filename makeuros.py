@@ -46,7 +46,21 @@ def write_os_release(data):
 
 def update_fetch_configs(logo_path):
     # Determine the real user (since script runs as root/sudo)
-    username = os.environ.get("SUDO_USER") or os.getlogin()
+    username = os.environ.get("SUDO_USER")
+    if not username:
+        try:
+            import subprocess
+            username = subprocess.check_output("logname", text=True).strip()
+        except Exception:
+            username = os.getlogin()
+
+    if not username or username == "root":
+        # Fallback to check directories in /home
+        if os.path.exists("/home"):
+            dirs = [d for d in os.listdir("/home") if os.path.isdir(os.path.join("/home", d)) and d != "lost+found"]
+            if dirs:
+                username = dirs[0]
+
     if not username or username == "root":
         return
 
@@ -66,19 +80,29 @@ def update_fetch_configs(logo_path):
                 content = f.read()
 
             # We need to insert or update the "logo" field in the JSON structure
-            # Check if "logo" block already exists in some form
             import re
             if '"logo"' in content:
-                # Replace existing logo block source
+                # Replace existing logo block source and type
                 content = re.sub(
                     r'("logo"\s*:\s*\{[^}]*"source"\s*:\s*")[^"]*(")',
                     r'\g<1>' + logo_path + r'\g<2>',
                     content
                 )
+                if '"type"' in content:
+                    content = re.sub(
+                        r'("logo"\s*:\s*\{[^}]*"type"\s*:\s*")[^"]*(")',
+                        r'\g<1>file\g<2>',
+                        content
+                    )
+                else:
+                    content = re.sub(
+                        r'("logo"\s*:\s*\{)',
+                        r'\g<1>\n    "type": "file",',
+                        content
+                    )
             else:
                 # Insert a logo block before the modules or at the start
-                # JSONC might start with '{' followed by other properties
-                replacement = '{\n  "logo": {\n    "source": "' + logo_path + '"\n  },'
+                replacement = '{\n  "logo": {\n    "source": "' + logo_path + '",\n    "type": "file"\n  },'
                 content = content.replace('{', replacement, 1)
 
             with open(fastfetch_conf_path, "w") as f:
