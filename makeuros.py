@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+import os
+import sys
+import argparse
+import shutil
+
+OS_RELEASE_PATH = "/etc/os-release"
+HOSTNAME_PATH = "/etc/hostname"
+ISSUE_PATH = "/etc/issue"
+
+def check_root():
+    if os.geteuid() != 0:
+        print("Error: This script must be run as root (sudo).", file=sys.stderr)
+        sys.exit(1)
+
+def parse_os_release():
+    if not os.path.exists(OS_RELEASE_PATH):
+        return {}
+    data = {}
+    with open(OS_RELEASE_PATH, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, val = line.split("=", 1)
+                # Strip quotes if present
+                val = val.strip('"\'')
+                data[key] = val
+    return data
+
+def write_os_release(data):
+    # Backup first
+    backup_path = OS_RELEASE_PATH + ".bak"
+    if not os.path.exists(backup_path):
+        shutil.copy2(OS_RELEASE_PATH, backup_path)
+        print(f"Backed up {OS_RELEASE_PATH} to {backup_path}")
+
+    with open(OS_RELEASE_PATH, "w") as f:
+        for k, v in data.items():
+            # If value contains spaces, wrap it in double quotes
+            if " " in v or not v.isalnum():
+                f.write(f'{k}="{v}"\n')
+            else:
+                f.write(f'{k}={v}\n')
+
+def set_hostname(new_hostname):
+    check_root()
+    # Backup first
+    backup_path = HOSTNAME_PATH + ".bak"
+    if not os.path.exists(backup_path):
+        shutil.copy2(HOSTNAME_PATH, backup_path)
+        print(f"Backed up {HOSTNAME_PATH} to {backup_path}")
+
+    with open(HOSTNAME_PATH, "w") as f:
+        f.write(new_hostname.strip() + "\n")
+    
+    # Try to set hostname in current session as well
+    os.system(f"hostnamectl set-hostname {new_hostname}")
+    print(f"Hostname updated to: {new_hostname}")
+
+def main():
+    parser = argparse.ArgumentParser(description="makeuros: Customize your Arch Linux system identity")
+    parser.add_argument("--name", help="Set the OS Name (e.g. MySuperOS)")
+    parser.add_argument("--id", help="Set the OS ID (lowercase, e.g. mysuperos)")
+    parser.add_argument("--pretty-name", help="Set the Pretty Name (e.g. MySuperOS GNU/Linux)")
+    parser.add_argument("--hostname", help="Set the system hostname")
+    parser.add_argument("--logo", help="Set the OS logo icon name (e.g. archlinux, ubuntu, or custom)")
+    parser.add_argument("--home-url", help="Set the Home Page URL")
+    parser.add_argument("--reset", action="store_true", help="Restore /etc/os-release and /etc/hostname from backups")
+
+    args = parser.parse_args()
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+
+    check_root()
+
+    if args.reset:
+        restored = False
+        for path in [OS_RELEASE_PATH, HOSTNAME_PATH]:
+            bak = path + ".bak"
+            if os.path.exists(bak):
+                shutil.copy2(bak, path)
+                print(f"Restored {path} from {bak}")
+                restored = True
+        if not restored:
+            print("No backups found to restore.")
+        sys.exit(0)
+
+    data = parse_os_release()
+
+    modified = False
+
+    if args.name:
+        data["NAME"] = args.name
+        modified = True
+    if args.id:
+        data["ID"] = args.id
+        modified = True
+    if args.pretty_name:
+        data["PRETTY_NAME"] = args.pretty_name
+        modified = True
+    if args.logo:
+        data["LOGO"] = args.logo
+        modified = True
+    if args.home_url:
+        data["HOME_URL"] = args.home_url
+        modified = True
+
+    if modified:
+        write_os_release(data)
+        print("Updated /etc/os-release successfully!")
+        # Also update /etc/issue for local login screens if appropriate
+        if "PRETTY_NAME" in data:
+            with open(ISSUE_PATH, "w") as f:
+                f.write(f"{data['PRETTY_NAME']} (\\l)\n\n")
+
+    if args.hostname:
+        set_hostname(args.hostname)
+
+if __name__ == "__main__":
+    main()
