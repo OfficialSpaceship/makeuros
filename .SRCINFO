@@ -1,0 +1,12 @@
+pkgbase = makeuros
+	pkgdesc = Customize your Arch Linux system identity (OS name, specs, etc.)
+	pkgver = 1.0.0
+	pkgrel = 1
+	url = https://github.com/shadow/makeuros
+	arch = any
+	license = MIT
+	depends = python
+	source = makeuros.py
+	sha256sums = SKIP
+
+pkgname = makeuros
