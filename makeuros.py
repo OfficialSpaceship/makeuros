@@ -145,6 +145,71 @@ def set_hostname(new_hostname):
     os.system(f"hostnamectl set-hostname {new_hostname}")
     print(f"Hostname updated to: {new_hostname}")
 
+def install_package(pkg):
+    print(f"Resolving the best installation path for: {pkg}...")
+    import shutil
+    import subprocess
+
+    # 1. Custom overrides for tricky applications
+    if pkg.lower() == "ollama":
+        print("Detected 'ollama'. Checking installation options...")
+        # Check if yay is available to install from AUR (preferred on Arch for updates)
+        if shutil.which("yay"):
+            print("Installing ollama via 'yay' (AUR)...")
+            res = os.system("yay -S --noconfirm ollama")
+            if res == 0:
+                print("ollama installed successfully via yay!")
+                return
+        # Fallback to official install script
+        if shutil.which("curl"):
+            print("Installing ollama via official curl installer script...")
+            res = os.system("curl -fsSL https://ollama.com/install.sh | sh")
+            if res == 0:
+                print("ollama installed successfully via curl script!")
+                return
+
+    # 2. Check if package exists in official Arch repositories (pacman)
+    if shutil.which("pacman"):
+        check_pacman = subprocess.run(["pacman", "-Sp", pkg], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if check_pacman.returncode == 0:
+            print(f"Package '{pkg}' found in official repositories. Installing via pacman...")
+            # pacman needs root/sudo privileges
+            res = os.system(f"sudo pacman -S --noconfirm {pkg}")
+            if res == 0:
+                print(f"Successfully installed {pkg} via pacman!")
+                return
+
+    # 3. Check if package can be installed via AUR (yay)
+    if shutil.which("yay"):
+        print(f"Checking if '{pkg}' is available in the AUR...")
+        check_aur = subprocess.run(["yay", "-Sp", pkg], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if check_aur.returncode == 0:
+            print(f"Package '{pkg}' found in AUR. Installing via yay...")
+            res = os.system(f"yay -S --noconfirm {pkg}")
+            if res == 0:
+                print(f"Successfully installed {pkg} via yay!")
+                return
+
+    # 4. Global generic installer scripts check (rustup, bun, deno, etc.)
+    common_scripts = {
+        "rustup": "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh",
+        "bun": "curl -fsSL https://bun.sh/install | sh",
+        "deno": "curl -fsSL https://deno.land/install.sh | sh",
+        "nvm": "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash",
+        "pipx": "python3 -m pip install --user pipx && python3 -m pipx ensurepath"
+    }
+
+    if pkg.lower() in common_scripts:
+        script = common_scripts[pkg.lower()]
+        print(f"Found developer install script for '{pkg}'. Running installer...")
+        res = os.system(script)
+        if res == 0:
+            print(f"Successfully installed {pkg}!")
+            return
+
+    print(f"Error: Could not find a suitable installation method for '{pkg}'. Try installing it manually.")
+    sys.exit(1)
+
 def main():
     parser = argparse.ArgumentParser(description="makeuros: Customize your Arch Linux system identity")
     parser.add_argument("--name", help="Set the OS Name (e.g. MySuperOS)")
@@ -154,11 +219,16 @@ def main():
     parser.add_argument("--logo", help="Set the OS logo icon name (e.g. archlinux, ubuntu, or custom)")
     parser.add_argument("--home-url", help="Set the Home Page URL")
     parser.add_argument("--reset", action="store_true", help="Restore /etc/os-release and /etc/hostname from backups")
+    parser.add_argument("--install", help="Install a package automatically using the best tool (pacman, yay, curl script, etc.)")
 
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
         parser.print_help()
+        sys.exit(0)
+
+    if args.install:
+        install_package(args.install)
         sys.exit(0)
 
     check_root()
