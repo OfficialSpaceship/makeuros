@@ -255,6 +255,103 @@ def install_package(pkg):
     print(f"Error: Could not find a suitable installation method for '{pkg}'. Try installing it manually.")
     sys.exit(1)
 
+def show_specs():
+    print("=" * 50)
+    print("                 SYSTEM SPECIFICATIONS                 ")
+    print("=" * 50)
+    
+    # 1. Print Custom OS variables
+    data = parse_os_release()
+    print(f"OS Custom Name  : {data.get('NAME', 'Not set (Arch Linux default)')}")
+    print(f"OS Custom ID    : {data.get('ID', 'Not set')}")
+    print(f"OS Pretty Name  : {data.get('PRETTY_NAME', 'Not set')}")
+    print(f"OS Logo File    : {data.get('LOGO', 'Default logo')}")
+    
+    if os.path.exists(HOSTNAME_PATH):
+        with open(HOSTNAME_PATH, "r") as f:
+            print(f"System Hostname : {f.read().strip()}")
+            
+    # 2. Print Hardware/System Specs
+    print("-" * 50)
+    try:
+        import platform
+        print(f"Kernel Version  : {platform.release()}")
+        print(f"Processor       : {platform.processor() or 'Unknown'}")
+        
+        # Get memory info
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                if "MemTotal" in line:
+                    total_kb = int(line.split()[1])
+                    print(f"Total RAM       : {total_kb / 1024 / 1024:.2f} GB")
+                    break
+        
+        # Get CPU info
+        with open("/proc/cpuinfo", "r") as f:
+            for line in f:
+                if "model name" in line:
+                    model = line.split(":", 1)[1].strip()
+                    print(f"CPU Model       : {model}")
+                    break
+                    
+        # Check disk size of root
+        import shutil
+        total, used, free = shutil.disk_usage("/")
+        print(f"Root Disk Space : {total / (1024**3):.2f} GB total ({free / (1024**3):.2f} GB free)")
+    except Exception as e:
+        print(f"Could not retrieve all hardware specs: {e}")
+    print("=" * 50)
+
+def run_interactive():
+    print("==================================================")
+    print("        makeuros Customization Wizard             ")
+    print("==================================================")
+    
+    # We need sudo privileges for writing files
+    if os.geteuid() != 0:
+        print("\nNote: This wizard needs sudo privileges to write system changes.")
+        print("Please rerun with: sudo makeuros --interactive")
+        sys.exit(1)
+
+    name = input("Enter OS Name (e.g., SpaceOS) [Leave blank to skip]: ").strip()
+    os_id = input("Enter OS ID (lowercase, e.g., spaceos) [Leave blank to skip]: ").strip()
+    pretty = input("Enter Pretty Name (e.g., SpaceOS GNU/Linux) [Leave blank to skip]: ").strip()
+    logo = input("Enter Logo Name or Path to ASCII file [Leave blank to skip]: ").strip()
+    hostname = input("Enter Hostname [Leave blank to skip]: ").strip()
+    home_url = input("Enter Homepage URL [Leave blank to skip]: ").strip()
+    lsb = input("Do you want to update /etc/lsb-release as well? (y/n) [n]: ").strip().lower() == "y"
+
+    cmd = "sudo makeuros"
+    if name: cmd += f' --name "{name}"'
+    if os_id: cmd += f' --id "{os_id}"'
+    if pretty: cmd += f' --pretty-name "{pretty}"'
+    if logo: cmd += f' --logo "{logo}"'
+    if hostname: cmd += f' --hostname "{hostname}"'
+    if home_url: cmd += f' --home-url "{home_url}"'
+    if lsb: cmd += ' --lsb-release'
+
+    if cmd == "sudo makeuros":
+        print("No modifications chosen. Exiting.")
+        return
+
+    print(f"\nRunning modification: {cmd}")
+    os.system(cmd)
+
+def write_lsb_release(name, os_id, pretty):
+    lsb_path = "/etc/lsb-release"
+    # Backup first
+    backup_path = lsb_path + ".bak"
+    if os.path.exists(lsb_path) and not os.path.exists(backup_path):
+        shutil.copy2(lsb_path, backup_path)
+        print(f"Backed up {lsb_path} to {backup_path}")
+
+    with open(lsb_path, "w") as f:
+        f.write(f"DISTRIB_ID={os_id.upper()}\n")
+        f.write(f"DISTRIB_RELEASE=1.0\n")
+        f.write(f"DISTRIB_CODENAME={os_id}\n")
+        f.write(f"DISTRIB_DESCRIPTION=\"{pretty}\"\n")
+    print(f"Updated {lsb_path} successfully!")
+
 def main():
     parser = argparse.ArgumentParser(description="makeuros: Customize your Arch Linux system identity")
     parser.add_argument("--name", help="Set the OS Name (e.g. MySuperOS)")
@@ -265,6 +362,9 @@ def main():
     parser.add_argument("--home-url", help="Set the Home Page URL")
     parser.add_argument("--reset", action="store_true", help="Restore /etc/os-release and /etc/hostname from backups")
     parser.add_argument("--install", help="Install a package automatically using the best tool (pacman, yay, curl script, etc.)")
+    parser.add_argument("--interactive", action="store_true", help="Launch interactive setup menu to customize everything")
+    parser.add_argument("--show-specs", action="store_true", help="Display summary of custom OS properties and hardware specifications")
+    parser.add_argument("--lsb-release", action="store_true", help="Also generate /etc/lsb-release for Debian/Ubuntu compatibility layers")
 
     args = parser.parse_args()
 
@@ -274,6 +374,14 @@ def main():
 
     if args.install:
         install_package(args.install)
+        sys.exit(0)
+
+    if args.show-specs or (len(sys.argv) == 2 and sys.argv[1] == "--show-specs"):
+        show_specs()
+        sys.exit(0)
+
+    if args.interactive:
+        run_interactive()
         sys.exit(0)
 
     check_root()
@@ -326,6 +434,14 @@ def main():
     if modified:
         write_os_release(data)
         print("Updated /etc/os-release successfully!")
+        
+        # If --lsb-release requested, write out lsb configuration compatibility too
+        if args.lsb_release:
+            name_val = data.get("NAME", "SpaceOS")
+            id_val = data.get("ID", "spaceos")
+            pretty_val = data.get("PRETTY_NAME", f"{name_val} GNU/Linux")
+            write_lsb_release(name_val, id_val, pretty_val)
+
         # Also update /etc/issue for local login screens if appropriate
         if "PRETTY_NAME" in data:
             with open(ISSUE_PATH, "w") as f:
