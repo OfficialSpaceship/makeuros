@@ -1,6 +1,6 @@
 # Maintainer: shadow <shadow@localhost>
 pkgname=makeuros
-pkgver=1.0.0
+pkgver=1.0.1
 pkgrel=1
 pkgdesc="Customize your Arch Linux system identity (OS name, specs, etc.)"
 arch=('any')

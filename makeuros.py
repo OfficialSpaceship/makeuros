@@ -53,29 +53,36 @@ def update_fetch_configs(logo_path):
     user_home = os.path.expanduser(f"~{username}")
 
     # Fastfetch config update
-    fastfetch_conf_path = os.path.join(user_home, ".config/fastfetch/config.jsonc")
+    fastfetch_dir = os.path.join(user_home, ".config/fastfetch")
+    fastfetch_conf_path = os.path.join(fastfetch_dir, "config.jsonc")
+    
+    # If the fastfetch config dir exists but not the config, we generate it or write one
+    if os.path.exists(fastfetch_dir) and not os.path.exists(fastfetch_conf_path):
+        os.system(f"su - {username} -c 'fastfetch --gen-config'")
+
     if os.path.exists(fastfetch_conf_path):
-        import json
         try:
-            # Simple line-by-line replacement or parsing to not destroy comments
             with open(fastfetch_conf_path, "r") as f:
-                lines = f.readlines()
-            
-            # Simple replacement for logo source in jsonc
-            in_logo = False
-            for i, line in enumerate(lines):
-                if '"logo"' in line:
-                    in_logo = True
-                if in_logo and '"source"' in line:
-                    # Replace the path
-                    lines[i] = f'        "source": "{logo_path}",\n'
-                    in_logo = False
-                if in_logo and '}' in line:
-                    in_logo = False
-            
-            # Write back
+                content = f.read()
+
+            # We need to insert or update the "logo" field in the JSON structure
+            # Check if "logo" block already exists in some form
+            import re
+            if '"logo"' in content:
+                # Replace existing logo block source
+                content = re.sub(
+                    r'("logo"\s*:\s*\{[^}]*"source"\s*:\s*")[^"]*(")',
+                    r'\g<1>' + logo_path + r'\g<2>',
+                    content
+                )
+            else:
+                # Insert a logo block before the modules or at the start
+                # JSONC might start with '{' followed by other properties
+                replacement = '{\n  "logo": {\n    "source": "' + logo_path + '"\n  },'
+                content = content.replace('{', replacement, 1)
+
             with open(fastfetch_conf_path, "w") as f:
-                f.writelines(lines)
+                f.write(content)
             print(f"Updated fastfetch config at {fastfetch_conf_path} to use custom logo.")
         except Exception as e:
             print(f"Failed to update fastfetch config: {e}")
