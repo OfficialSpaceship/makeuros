@@ -44,6 +44,61 @@ def write_os_release(data):
             else:
                 f.write(f'{k}={v}\n')
 
+def update_fetch_configs(logo_path):
+    # Determine the real user (since script runs as root/sudo)
+    username = os.environ.get("SUDO_USER") or os.getlogin()
+    if not username or username == "root":
+        return
+
+    user_home = os.path.expanduser(f"~{username}")
+
+    # Fastfetch config update
+    fastfetch_conf_path = os.path.join(user_home, ".config/fastfetch/config.jsonc")
+    if os.path.exists(fastfetch_conf_path):
+        import json
+        try:
+            # Simple line-by-line replacement or parsing to not destroy comments
+            with open(fastfetch_conf_path, "r") as f:
+                lines = f.readlines()
+            
+            # Simple replacement for logo source in jsonc
+            in_logo = False
+            for i, line in enumerate(lines):
+                if '"logo"' in line:
+                    in_logo = True
+                if in_logo and '"source"' in line:
+                    # Replace the path
+                    lines[i] = f'        "source": "{logo_path}",\n'
+                    in_logo = False
+                if in_logo and '}' in line:
+                    in_logo = False
+            
+            # Write back
+            with open(fastfetch_conf_path, "w") as f:
+                f.writelines(lines)
+            print(f"Updated fastfetch config at {fastfetch_conf_path} to use custom logo.")
+        except Exception as e:
+            print(f"Failed to update fastfetch config: {e}")
+
+    # Neofetch config update
+    neofetch_conf_path = os.path.join(user_home, ".config/neofetch/config.conf")
+    if os.path.exists(neofetch_conf_path):
+        try:
+            with open(neofetch_conf_path, "r") as f:
+                lines = f.readlines()
+            
+            for i, line in enumerate(lines):
+                if line.strip().startswith("image_source="):
+                    lines[i] = f'image_source="{logo_path}"\n'
+                elif line.strip().startswith("image_backend="):
+                    lines[i] = f'image_backend="ascii"\n'
+
+            with open(neofetch_conf_path, "w") as f:
+                f.writelines(lines)
+            print(f"Updated neofetch config at {neofetch_conf_path} to use custom logo.")
+        except Exception as e:
+            print(f"Failed to update neofetch config: {e}")
+
 def set_hostname(new_hostname):
     check_root()
     # Backup first
@@ -97,13 +152,26 @@ def main():
         data["NAME"] = args.name
         modified = True
     if args.id:
-        data["ID"] = args.id
+        # Check if the input to --id is a filepath
+        if os.path.exists(os.path.expanduser(args.id)):
+            logo_path = os.path.abspath(os.path.expanduser(args.id))
+            data["ID"] = "custom_os"
+            data["LOGO"] = logo_path
+            # Also update fetch configs if they exist
+            update_fetch_configs(logo_path)
+        else:
+            data["ID"] = args.id
         modified = True
     if args.pretty_name:
         data["PRETTY_NAME"] = args.pretty_name
         modified = True
     if args.logo:
-        data["LOGO"] = args.logo
+        if os.path.exists(os.path.expanduser(args.logo)):
+            logo_path = os.path.abspath(os.path.expanduser(args.logo))
+            data["LOGO"] = logo_path
+            update_fetch_configs(logo_path)
+        else:
+            data["LOGO"] = args.logo
         modified = True
     if args.home_url:
         data["HOME_URL"] = args.home_url
