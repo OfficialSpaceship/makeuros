@@ -376,7 +376,7 @@ def main():
         install_package(args.install)
         sys.exit(0)
 
-    if args.show-specs or (len(sys.argv) == 2 and sys.argv[1] == "--show-specs"):
+    if args.show_specs or (len(sys.argv) == 2 and sys.argv[1] == "--show-specs"):
         show_specs()
         sys.exit(0)
 
