@@ -190,7 +190,52 @@ def install_package(pkg):
                 print(f"Successfully installed {pkg} via yay!")
                 return
 
-    # 4. Global generic installer scripts check (rustup, bun, deno, etc.)
+    # 4. Check Flatpak
+    if shutil.which("flatpak"):
+        print(f"Checking if '{pkg}' is available on Flathub...")
+        # Check flatpak search
+        check_flatpak = subprocess.run(["flatpak", "search", pkg], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # Parse the output to see if there is an exact or highly relevant match
+        if check_flatpak.returncode == 0 and pkg.lower() in check_flatpak.stdout.lower():
+            # Find the Application ID in the search results
+            app_id = ""
+            for line in check_flatpak.stdout.split("\n"):
+                parts = [p.strip() for p in line.split("\t") if p.strip()]
+                if len(parts) >= 2 and (pkg.lower() in parts[0].lower() or pkg.lower() in parts[1].lower()):
+                    app_id = parts[1]
+                    break
+            
+            if app_id:
+                print(f"Package '{pkg}' found on Flathub (ID: {app_id}). Installing via Flatpak...")
+                res = os.system(f"flatpak install -y flathub {app_id}")
+                if res == 0:
+                    print(f"Successfully installed {pkg} via Flatpak!")
+                    return
+
+    # 5. Check Snap
+    if shutil.which("snap"):
+        print(f"Checking if '{pkg}' is available on Snap Store...")
+        check_snap = subprocess.run(["snap", "info", pkg], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if check_snap.returncode == 0:
+            print(f"Package '{pkg}' found on Snap Store. Installing via snap...")
+            res = os.system(f"sudo snap install {pkg}")
+            if res == 0:
+                print(f"Successfully installed {pkg} via Snap!")
+                return
+
+    # 6. Check Python pip
+    if shutil.which("pip"):
+        print(f"Checking if '{pkg}' is available on PyPI (pip)...")
+        check_pip = subprocess.run(["pip", "show", pkg], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        check_pip_dry = subprocess.run(["pip", "install", pkg, "--dry-run"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if check_pip_dry.returncode == 0:
+            print(f"Package '{pkg}' found on PyPI. Installing via pip...")
+            res = os.system(f"pip install --user {pkg}")
+            if res == 0:
+                print(f"Successfully installed {pkg} via pip!")
+                return
+
+    # 7. Global generic installer scripts check (rustup, bun, deno, etc.)
     common_scripts = {
         "rustup": "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh",
         "bun": "curl -fsSL https://bun.sh/install | sh",
