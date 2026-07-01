@@ -170,7 +170,7 @@ def install_package(pkg):
 
     # 2. Check if package exists in official Arch repositories (pacman)
     if shutil.which("pacman"):
-        check_pacman = subprocess.run(["pacman", "-Sp", pkg], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        check_pacman = subprocess.run(["pacman", "-Si", pkg], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if check_pacman.returncode == 0:
             print(f"Package '{pkg}' found in official repositories. Installing via pacman...")
             # pacman needs root/sudo privileges
@@ -182,7 +182,7 @@ def install_package(pkg):
     # 3. Check if package can be installed via AUR (yay)
     if shutil.which("yay"):
         print(f"Checking if '{pkg}' is available in the AUR...")
-        check_aur = subprocess.run(["yay", "-Sp", pkg], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        check_aur = subprocess.run(["yay", "-Si", pkg], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if check_aur.returncode == 0:
             print(f"Package '{pkg}' found in AUR. Installing via yay...")
             res = os.system(f"yay -S --noconfirm {pkg}")
