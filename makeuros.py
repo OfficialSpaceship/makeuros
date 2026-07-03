@@ -3,6 +3,7 @@ import os
 import sys
 import argparse
 import shutil
+import re
 
 OS_RELEASE_PATH = "/etc/os-release"
 HOSTNAME_PATH = "/etc/hostname"
@@ -153,7 +154,6 @@ def update_fetch_logo(logo_path, username, user_home):
             with open(fastfetch_conf, "r") as f:
                 content = f.read()
 
-            import re
             if '"logo"' in content:
                 # Replace existing logo block — update or insert source/type
                 if '"source"' in content:
@@ -209,11 +209,15 @@ def update_fetch_logo(logo_path, username, user_home):
         except Exception as e:
             print(f"Failed to update neofetch config: {e}")
 
-def update_fetch_color(color, username, user_home):
+def update_fetch_os_info(username, user_home, color=None):
     """
-    Update fastfetch and neofetch configs to use the specified color.
-    Color can be a color name (e.g. 'cyan', 'red') or a number (0-15 ANSI).
+    Update fastfetch config with OS info from /etc/os-release and optional color.
+    Ensures the custom OS name, ID, and pretty name are reflected.
     """
+    data = parse_os_release()
+    os_name = data.get("NAME", "")
+    os_id = data.get("ID", "")
+    pretty_name = data.get("PRETTY_NAME", "")
 
     # --- Fastfetch ---
     fastfetch_conf = ensure_fastfetch_config(username, user_home)
@@ -222,67 +226,66 @@ def update_fetch_color(color, username, user_home):
             with open(fastfetch_conf, "r") as f:
                 content = f.read()
 
-            import re
-            # fastfetch uses "colorScheme" or per-module "outputColor"
-            # The simplest universal approach: set top-level "colorScheme"
-            if '"colorScheme"' in content:
+            # Update title module to show custom OS name
+            if '"title"' in content:
+                # title module exists, ensure it uses os-release data
+                pass
+            else:
+                # Add title module at the beginning of modules array
                 content = re.sub(
-                    r'("colorScheme"\s*:\s*")[^"]*(")',
-                    r'\g<1>' + color + r'\g<2>',
+                    r'("modules"\s*:\s*\[\s*)',
+                    r'\1\n    "title",',
                     content
                 )
-            else:
-                # Insert after the opening brace
+
+            # Set custom title format if NAME is set
+            if os_name:
+                title_format = f'"titleFormat": "{os_name}"'
+                if '"titleFormat"' in content:
+                    content = re.sub(
+                        r'("titleFormat"\s*:\s*")[^"]*(")',
+                        r'\g<1>' + os_name + r'\g<2>',
+                        content
+                    )
+                else:
+                    # Insert after opening brace or after logo block
+                    content = re.sub(
+                        r'(\{)',
+                        r'\1\n  ' + title_format + ',',
+                        content,
+                        count=1
+                    )
+
+            # Ensure os module is present to show ID
+            if '"os"' not in content:
                 content = re.sub(
-                    r'(\{)',
-                    r'\1\n  "colorScheme": "' + color + '",',
-                    content,
-                    count=1
+                    r'("modules"\s*:\s*\[\s*)',
+                    r'\1\n    "os",',
+                    content
                 )
+
+            # Handle color if provided
+            if color:
+                if '"colorScheme"' in content:
+                    content = re.sub(
+                        r'("colorScheme"\s*:\s*")[^"]*(")',
+                        r'\g<1>' + color + r'\g<2>',
+                        content
+                    )
+                else:
+                    # Insert after the opening brace
+                    content = re.sub(
+                        r'(\{)',
+                        r'\1\n  "colorScheme": "' + color + '",',
+                        content,
+                        count=1
+                    )
 
             with open(fastfetch_conf, "w") as f:
                 f.write(content)
-            print(f"Updated fastfetch config at {fastfetch_conf} with color: {color}")
+            print(f"Updated fastfetch config at {fastfetch_conf} with OS info: {os_name} ({os_id})" + (f", color: {color}" if color else ""))
         except Exception as e:
-            print(f"Failed to update fastfetch color config: {e}")
-
-    # --- Neofetch ---
-    neofetch_conf = os.path.join(user_home, ".config/neofetch/config.conf")
-    if os.path.exists(neofetch_conf):
-        try:
-            with open(neofetch_conf, "r") as f:
-                lines = f.readlines()
-
-            # Map color name to ANSI number for neofetch if numeric
-            color_val = color
-            color_map = {
-                "black": "0", "red": "1", "green": "2", "yellow": "3",
-                "blue": "4", "magenta": "5", "cyan": "6", "white": "7",
-                "bright_black": "8", "bright_red": "9", "bright_green": "10",
-                "bright_yellow": "11", "bright_blue": "12", "bright_magenta": "13",
-                "bright_cyan": "14", "bright_white": "15"
-            }
-            if color.lower() in color_map:
-                color_val = color_map[color.lower()]
-
-            found_colors = False
-            for i, line in enumerate(lines):
-                stripped = line.strip()
-                if stripped.startswith("colors=(") or stripped.startswith("colors =("):
-                    # Replace the whole colors line
-                    lines[i] = f'colors=({color_val} {color_val} {color_val} {color_val} {color_val} {color_val})\n'
-                    found_colors = True
-                    break
-
-            if not found_colors:
-                # Append near end
-                lines.append(f'\ncolors=({color_val} {color_val} {color_val} {color_val} {color_val} {color_val})\n')
-
-            with open(neofetch_conf, "w") as f:
-                f.writelines(lines)
-            print(f"Updated neofetch config at {neofetch_conf} with color: {color}")
-        except Exception as e:
-            print(f"Failed to update neofetch color config: {e}")
+            print(f"Failed to update fastfetch OS info config: {e}")
 
 def set_hostname(new_hostname):
     check_root()
@@ -539,7 +542,7 @@ def main():
     # Handle --color (no root needed for user config files)
     if args.color:
         if username and user_home:
-            update_fetch_color(args.color, username, user_home)
+            update_fetch_os_info(username, user_home, color=args.color)
         else:
             print("Warning: Could not determine the real user home directory. Skipping fetch color update.")
 
@@ -595,6 +598,10 @@ def main():
     if modified:
         write_os_release(data)
         print("Updated /etc/os-release successfully!")
+
+        # Update fastfetch/neofetch with new OS info system-wide
+        if username and user_home:
+            update_fetch_os_info(username, user_home)
 
         if args.lsb_release:
             name_val = data.get("NAME", "SpaceOS")
