@@ -266,17 +266,36 @@ def update_fetch_os_info(username, user_home, color=None):
 
             # Handle color if provided
             if color:
+                # Remove old colorScheme if present
                 if '"colorScheme"' in content:
                     content = re.sub(
-                        r'("colorScheme"\s*:\s*")[^"]*(")',
+                        r',?\s*"colorScheme"\s*:\s*"[^"]*"',
+                        '',
+                        content
+                    )
+
+                # Check for display OBJECT (not the "display" string in modules array)
+                has_display_obj = '"display": {' in content
+
+                if has_display_obj and '"color"' in content:
+                    # Update existing display.color
+                    content = re.sub(
+                        r'("display"\s*:\s*\{[^}]*"color"\s*:\s*")[^"]*(")',
                         r'\g<1>' + color + r'\g<2>',
                         content
                     )
+                elif has_display_obj:
+                    # Add color to existing display object
+                    content = re.sub(
+                        r'("display"\s*:\s*\{)',
+                        r'\1\n    "color": "' + color + '",',
+                        content
+                    )
                 else:
-                    # Insert after the opening brace
+                    # Add display object with color after opening brace
                     content = re.sub(
                         r'(\{)',
-                        r'\1\n  "colorScheme": "' + color + '",',
+                        r'\1\n  "display": {\n    "color": "' + color + '"\n  },',
                         content,
                         count=1
                     )
@@ -601,7 +620,7 @@ def main():
 
         # Update fastfetch/neofetch with new OS info system-wide
         if username and user_home:
-            update_fetch_os_info(username, user_home)
+            update_fetch_os_info(username, user_home, color=args.color)
 
         if args.lsb_release:
             name_val = data.get("NAME", "SpaceOS")

@@ -1,6 +1,6 @@
 pkgbase = makeuros
 	pkgdesc = Customize your Arch Linux system identity (OS name, specs, etc.)
-	pkgver = 1.0.9
+	pkgver = 1.0.10
 	pkgrel = 1
 	url = https://github.com/shadow/makeuros
 	arch = any
