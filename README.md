@@ -4,7 +4,7 @@
 
 ## Installation
 
-You can install this package via `yay` (once pushed to the AUR) or build it manually:
+You can install this package via `yay` (Via: yay -S makeuros) or build it manually:
 
 ```bash
 git clone https://github.com/shadow/makeuros.git
@@ -23,3 +23,7 @@ sudo makeuros --name "ShadowOS" --id "shadowos" --pretty-name "ShadowOS GNU/Linu
 # Reset changes to backups
 sudo makeuros --reset
 ```
+
+## Build Time
+
+Since makeuros is not big and does not use any dependencies apart from python, it will build in seconds.
