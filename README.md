@@ -2,6 +2,10 @@
 
 `makeuros` is a CLI tool that lets you customize your Arch Linux system identity, allowing you to choose your own OS name, hostname, logo, etc.
 
+## Required Dependencies:
+
+You need to have Python installed (latest version recommended, but works on older versions.), thats all.
+
 ## Installation
 
 You can install this package via `yay` (Via: yay -S makeuros) or build it manually:
