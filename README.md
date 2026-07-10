@@ -40,5 +40,14 @@ If you wanna create your own custom logo please create a file in your home direc
 After that run ``sudo makeuros --id ~/logo.txt``.
 
 ## Build Time
-
 Since makeuros is not big and does not use any dependencies apart from python, it will build in seconds.
+
+## Useful command
+
+There is a builtin command with ``--install`` which will install any package you want, completely by itself. It is there to help YOU the user out, so you do not need to search manually if pacman or yay or ETC has it, it automatically searches and installs it.
+
+Usage Example:
+
+```
+sudo makeuros --install spxc-core
+```
