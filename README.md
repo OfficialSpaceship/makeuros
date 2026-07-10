@@ -7,9 +7,14 @@
 You can install this package via `yay` (Via: yay -S makeuros) or build it manually:
 
 ```bash
-git clone https://github.com/shadow/makeuros.git
+git clone https://github.com/OfficialSpaceship/makeuros.git
 cd makeuros
 makepkg -si
+```
+
+However, if there is an Authentication error please run the next command:
+```
+git config --global --unset credential.helper
 ```
 
 ## Usage
@@ -18,7 +23,7 @@ Since `makeuros` modifies system configuration files (`/etc/os-release`, `/etc/h
 
 ```bash
 # Set OS Name and Hostname
-sudo makeuros --name "ShadowOS" --id "shadowos" --pretty-name "ShadowOS GNU/Linux" --hostname "shadow-box"
+sudo makeuros --name "Sx Server OS" --id "shadowos" --pretty-name "ShadowOS GNU/Linux" --hostname "shadow-box"
 
 # Reset changes to backups
 sudo makeuros --reset
