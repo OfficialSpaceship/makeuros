@@ -4,7 +4,7 @@
 
 ## Installation
 
-You can install this package via `yay` (once pushed to the AUR or a custom repository) or build it manually:
+You can install this package via `yay` (once pushed to the AUR) or build it manually:
 
 ```bash
 git clone https://github.com/shadow/makeuros.git
@@ -14,7 +14,7 @@ makepkg -si
 
 ## Usage
 
-Since `makeuros` modifies system configuration files (`/etc/os-release`, `/etc/hostname`), it must be run with `sudo`:
+Since `makeuros` modifies system configuration files (`/etc/os-release`, `/etc/hostname`), it must be ran with `sudo`:
 
 ```bash
 # Set OS Name and Hostname
