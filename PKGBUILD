@@ -4,10 +4,10 @@ pkgver=1.0.10
 pkgrel=1
 pkgdesc="Customize your Arch Linux system identity (OS name, specs, etc.)"
 arch=('any')
-url="https://github.com/shadow/makeuros"
+url="https://github.com/OfficialSpaceship/makeuros"
 license=('MIT')
 depends=('python')
-source=("makeuros.py")
+source=("makeuros.py::https://github.com/OfficialSpaceship/makeuros/raw/v${pkgver}/makeuros.py")
 sha256sums=('SKIP')
 
 package() {
