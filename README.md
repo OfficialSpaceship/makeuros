@@ -23,15 +23,21 @@ git config --global --unset credential.helper
 
 ## Usage
 
-Since `makeuros` modifies system configuration files (`/etc/os-release`, `/etc/hostname`), it must be ran with `sudo`:
+Since makeuros ***modifies settings system wide***, it needs to be ran with sudo. 
 
-```bash
-# Set OS Name and Hostname
-sudo makeuros --name "Sx Server OS" --id "shadowos" --pretty-name "ShadowOS GNU/Linux" --hostname "shadow-box"
+Examples:
 
-# Reset changes to backups
-sudo makeuros --reset
 ```
+sudo makeuros --pretty-name "SX Server OS"
+sudo makeuros --pretty-name SxServerOS
+sudo makeuros --reset
+sudo makeuros --id ~/logo.txt
+```
+
+## How to create a logo
+
+If you wanna create your own custom logo please create a file in your home directory with ``nano ~/logo.txt``, then paste your ASCII logo in there.
+After that run ``sudo makeuros --id ~/logo.txt``.
 
 ## Build Time
 
