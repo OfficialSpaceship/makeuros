@@ -1,6 +1,6 @@
 # makeuros
 
-`makeuros` is a tool to customize your OS branding, setup docker containers easily, and much more!
+`makeuros` is a tool to customize your OS branding, set up docker containers easily, and much more!
 
 ## Required Dependencies:
 
