@@ -6,7 +6,7 @@ pkgbase = makeuros
 	arch = any
 	license = MIT
 	depends = python
-	source = makeuros.py::https://github.com/OfficialSpaceship/makeuros/raw/v1.0.24/makeuros.py
+	source = makeuros.py::https://github.com/OfficialSpaceship/makeuros/raw/V1.0.24/makeuros.py
 	sha256sums = SKIP
 
 pkgname = makeuros
