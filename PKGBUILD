@@ -7,7 +7,7 @@ arch=('any')
 url="https://github.com/OfficialSpaceship/makeuros"
 license=('MIT')
 depends=('python')
-source=("makeuros.py::https://github.com/OfficialSpaceship/makeuros/raw/V${pkgver}/makeuros.py")
+source=("makeuros.py::https://github.com/OfficialSpaceship/makeuros/releases/latest/download/makeuros.py")
 sha256sums=('SKIP')
 
 package() {
