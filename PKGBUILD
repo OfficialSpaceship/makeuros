@@ -1,8 +1,8 @@
 # Maintainer: shadow <shadow@localhost>
 pkgname=makeuros
-pkgver=1.0.25
+pkgver=1.0.26
 pkgrel=1
-pkgdesc="Customize your Arch Linux system identity and setup Docker containers for 19 self-hosted services"
+pkgdesc="Customize your Arch Linux system identity and setup Docker containers for 18 self-hosted services"
 arch=('any')
 url="https://github.com/OfficialSpaceship/makeuros"
 license=('MIT')

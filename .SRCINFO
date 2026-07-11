@@ -1,6 +1,6 @@
 pkgbase = makeuros
-	pkgdesc = Customize your Arch Linux system identity and setup Docker containers for 19 self-hosted services
-	pkgver = 1.0.25
+	pkgdesc = Customize your Arch Linux system identity and setup Docker containers for 18 self-hosted services
+	pkgver = 1.0.26
 	pkgrel = 1
 	url = https://github.com/OfficialSpaceship/makeuros
 	arch = any
