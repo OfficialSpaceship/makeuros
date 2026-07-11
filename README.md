@@ -54,7 +54,7 @@ sudo makeuros --install spxc-core
 
 ## Setting up docker containers
 
-With this Release 1.0.24, you can now setup your own docker environments easily, and manage easily.
+With this Release 1.0.25, you can now setup your own docker environments easily, and manage easily.
 
 ## Usage:
 
