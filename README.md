@@ -1,6 +1,6 @@
 # makeuros
 
-`makeuros` is a CLI tool that lets you customize your Arch Linux system identity, allowing you to choose your own OS name, hostname, logo, etc.
+`makeuros` is a tool to customize your OS branding, setup docker containers easily, and much more!
 
 ## Required Dependencies:
 
