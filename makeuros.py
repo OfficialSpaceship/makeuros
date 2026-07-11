@@ -658,7 +658,7 @@ SERVICES = {
     "pihole": lambda: setup_docker_compose("pihole", "pihole/pihole:latest", 80, "pihole", use_host_network=True),
     "watchtower": lambda: setup_docker_compose("watchtower", "containrrr/watchtower:latest", 0, "watchtower", env_vars=["WATCHTOWER_CLEANUP=true"]),
     "speedtest-tracker": lambda: setup_docker_compose("speedtest-tracker", "linuxserver/speedtest-tracker:latest", 8080, "speedtest-tracker", extra_vars=[("Enter Ookla license key", "OOKLA_LICENSE_KEY")]),
-    "filebrowser": lambda: setup_docker_compose("filebrowser", "filebrowser/filebrowser:safe", 8080, "filebrowser"),
+    "filebrowser": lambda: setup_docker_compose("filebrowser", "filebrowser/filebrowser:latest", 8080, "filebrowser"),
     "karakeep": lambda: setup_docker_compose("karakeep", "cyangze/karakeep:latest", 3060, "karakeep"),
     "memos": lambda: setup_docker_compose("memos", "ghcr.io/usememos/memos:latest", 5555, "memos"),
     "firefox-sync": lambda: setup_docker_compose("firefox-sync", "mozilla/syncserver:latest", 5000, "firefox-sync", env_vars=["SYNCSERVER_FORCE_WSGI=1"]),
