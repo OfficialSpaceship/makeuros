@@ -644,7 +644,7 @@ SERVICE_DESCRIPTIONS = {
 
 SERVICES = {
     "n8n": lambda: setup_docker_compose("n8n", "n8nio/n8n:latest", 5678, "n8n"),
-    "immich": lambda: setup_docker_compose("immich", "ghcr.io/immich-app/immich-server:latest", 3001, "immich-server"),
+    "immich": lambda: setup_docker_compose("immich", "ghcr.io/immich-app/immich-server:release", 3001, "immich-server"),
     "jellyfin": lambda: setup_docker_compose("jellyfin", "jellyfin/jellyfin:latest", 8096, "jellyfin", extra_ports=[("8920", "8920")]),
     "homeassistant": lambda: setup_docker_compose("homeassistant", "ghcr.io/home-assistant/home-assistant:stable", 8123, "homeassistant"),
     "adguardhome": lambda: setup_docker_compose("adguardhome", "adguard/adguardhome:latest", 80, "adguardhome"),
