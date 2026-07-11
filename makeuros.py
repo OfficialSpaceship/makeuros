@@ -4,6 +4,7 @@ import sys
 import argparse
 import shutil
 import re
+import subprocess
 
 OS_RELEASE_PATH = "/etc/os-release"
 HOSTNAME_PATH = "/etc/hostname"
@@ -515,6 +516,154 @@ def write_lsb_release(name, os_id, pretty):
         f.write(f'DISTRIB_DESCRIPTION="{pretty}"\n')
     print(f"Updated {lsb_path} successfully!")
 
+def check_docker_installed():
+    """Check if Docker is installed and offer to install if not."""
+    if shutil.which("docker"):
+        return True
+    print("Docker is not installed.")
+    choice = input("Would you like to install Docker? (y/n): ").strip().lower()
+    if choice == "y":
+        print("Installing Docker...")
+        if shutil.which("pacman"):
+            res = os.system("sudo pacman -S --noconfirm docker")
+            if res == 0:
+                print("Docker installed. Starting and enabling Docker service...")
+                os.system("sudo systemctl start docker && sudo systemctl enable docker")
+                return True
+        print("Could not install Docker automatically. Please install it manually.")
+    return False
+
+def check_docker_networking():
+    """Check if Docker networking is available."""
+    if not shutil.which("docker"):
+        return False
+    try:
+        subprocess.run(["docker", "network", "ls"], capture_output=True, check=False)
+        subprocess.run(["docker", "run", "--rm", "hello-world"], capture_output=True, timeout=30, check=False)
+        return True
+    except:
+        return False
+
+def get_local_ip():
+    """Get the local IP address for URL display."""
+    try:
+        result = subprocess.run(["ip", "route", "get", "8.8.8.8"], capture_output=True, text=True)
+        match = re.search(r"src (\d+\.\d+\.\d+\.\d+)", result.stdout)
+        return match.group(1) if match else "localhost"
+    except:
+        return "localhost"
+
+def setup_docker_compose(service_name, image, default_port, default_container_name, env_vars=None, container_port=None, extra_ports=None, extra_vars=None, use_host_network=False, volume_mounts=None):
+    """Generic Docker Compose service setup helper."""
+    print(f"\n=== Setting up {service_name} ===\n")
+    if not check_docker_installed():
+        print(f"Cannot setup {service_name} without Docker. Exiting.")
+        sys.exit(1)
+    if not check_docker_networking():
+        print("Warning: Docker networking appears unavailable.")
+        if input("Continue anyway? (y/n): ").strip().lower() != "y":
+            sys.exit(0)
+    
+    restart = input("Auto-restart on boot? (y/n) [y]: ").strip().lower()
+    restart_policy = "unless-stopped" if restart != "n" else "no"
+    volume_path = input(f"Enter Docker volume path [/var/lib/{service_name}:]: ").strip() or f"/var/lib/{service_name}"
+    os.makedirs(volume_path, exist_ok=True)
+    container_name = input(f"Enter container name [{default_container_name}]: ").strip() or default_container_name
+    container_port = container_port or default_port
+    port_str = input(f"Enter host port ({container_port} in container) [{default_port}]: ").strip()
+    port = int(port_str) if port_str else default_port
+    
+    final_env_vars = list(env_vars) if env_vars else []
+    if extra_vars:
+        for prompt, var_name in extra_vars:
+            val = input(f"{prompt}: ").strip()
+            if val: final_env_vars.append(f"{var_name}={val}")
+    
+    subprocess.run(["docker", "pull", image], capture_output=False)
+    compose_file = f"{volume_path.rstrip('/')}/docker-compose-{service_name}.yml"
+    
+    lines = ["services:", f"  {container_name}:", f"    image: {image}", f"    container_name: {container_name}", f"    restart: {restart_policy}"]
+    if use_host_network: lines.append("    network_mode: host")
+    
+    ports = []
+    if port > 0 and not use_host_network: ports.append(f'      - "{port}:{container_port}"')
+    if extra_ports and not use_host_network: ports.extend([f'      - "{hp}:{cp}"' for hp, cp in extra_ports])
+    if ports: lines.extend(["    ports:"] + ports)
+    
+    volumes = [f"      - {volume_path.rstrip('/')}/config:/config"]
+    lines.extend(["    volumes:"] + volumes)
+    
+    if final_env_vars:
+        lines.append("    environment:")
+        for env in final_env_vars: lines.append(f"      - {env}")
+    
+    with open(compose_file, "w") as f: f.write("\n".join(lines) + "\n")
+    
+    result = subprocess.run(["docker", "compose", "-f", compose_file, "up", "-d"], capture_output=True, text=True, cwd=volume_path.rstrip("/"))
+    if result.returncode != 0: print(f"Failed: {result.stderr}"); sys.exit(1)
+    print(f"\n{service_name} setup complete!")
+    if port > 0: print(f"Access at: http://{get_local_ip()}:{port}")
+
+def docker_compose_action(target, action):
+    """Start, stop, or remove containers from a docker compose file or container name."""
+    compose_file = None
+    if os.path.isfile(target): compose_file = os.path.abspath(target)
+    elif os.path.isfile(os.path.join(os.getcwd(), target)): compose_file = os.path.abspath(os.path.join(os.getcwd(), target))
+    if not compose_file:
+        for base_dir in ["/var/lib", "/opt", "/run/media"]:
+            possible = os.path.join(base_dir, target, f"docker-compose-{target}.yml")
+            if os.path.isfile(possible): compose_file = possible; break
+    if not compose_file: print(f"Error: Could not find compose file for '{target}'."); sys.exit(1)
+    compose_dir = os.path.dirname(os.path.abspath(compose_file))
+    cmd_args = {"start": ["up", "-d"], "stop": ["stop"], "rm": ["down"]}.get(action, ["up", "-d"])
+    result = subprocess.run(["docker", "compose", "-f", compose_file] + cmd_args, capture_output=True, text=True, cwd=compose_dir or ".")
+    if result.returncode != 0: print(f"Failed: {result.stderr}"); sys.exit(1)
+    print(f"{action.title()}ed container(s) from {compose_file}")
+
+SERVICE_DESCRIPTIONS = {
+    "n8n": "Workflow automation tool",
+    "immich": "Photo management (like Google Photos)",
+    "jellyfin": "Media server for videos/music",
+    "homeassistant": "Home automation platform",
+    "adguardhome": "DNS ad blocker",
+    "nextcloud": "Self-hosted file sync",
+    "portainer": "Docker management UI",
+    "uptime-kuma": "Uptime monitoring",
+    "gitea": "Git service",
+    "radarr": "Movie download automation",
+    "sonarr": "TV series download automation",
+    "bazarr": "Subtitle downloader",
+    "pihole": "DNS ad blocking",
+    "watchtower": "Auto container updates",
+    "speedtest-tracker": "Speedtest monitoring",
+    "filebrowser": "File manager",
+    "karakeep": "Bookmark manager",
+    "memos": "Note taking",
+    "firefox-sync": "Firefox Sync Server",
+}
+
+SERVICES = {
+    "n8n": lambda: setup_docker_compose("n8n", "n8nio/n8n:latest", 5678, "n8n"),
+    "immich": lambda: setup_docker_compose("immich", "ghcr.io/immich-app/immich-server:latest", 3001, "immich-server"),
+    "jellyfin": lambda: setup_docker_compose("jellyfin", "jellyfin/jellyfin:latest", 8096, "jellyfin", extra_ports=[("8920", "8920")]),
+    "homeassistant": lambda: setup_docker_compose("homeassistant", "ghcr.io/home-assistant/home-assistant:stable", 8123, "homeassistant"),
+    "adguardhome": lambda: setup_docker_compose("adguardhome", "adguard/adguardhome:latest", 80, "adguardhome"),
+    "nextcloud": lambda: setup_docker_compose("nextcloud", "nextcloud:latest", 8080, "nextcloud", container_port=80),
+    "portainer": lambda: setup_docker_compose("portainer", "portainer/portainer-ce:latest", 9000, "portainer"),
+    "uptime-kuma": lambda: setup_docker_compose("uptime-kuma", "louislam/uptime-kuma:latest", 3001, "uptime-kuma"),
+    "gitea": lambda: setup_docker_compose("gitea", "gitea/gitea:latest", 3000, "gitea", extra_ports=[("2222", "22")]),
+    "radarr": lambda: setup_docker_compose("radarr", "linuxserver/radarr:latest", 7878, "radarr"),
+    "sonarr": lambda: setup_docker_compose("sonarr", "linuxserver/sonarr:latest", 8989, "sonarr"),
+    "bazarr": lambda: setup_docker_compose("bazarr", "linuxserver/bazarr:latest", 6767, "bazarr"),
+    "pihole": lambda: setup_docker_compose("pihole", "pihole/pihole:latest", 80, "pihole", use_host_network=True),
+    "watchtower": lambda: setup_docker_compose("watchtower", "containrrr/watchtower:latest", 0, "watchtower", env_vars=["WATCHTOWER_CLEANUP=true"]),
+    "speedtest-tracker": lambda: setup_docker_compose("speedtest-tracker", "linuxserver/speedtest-tracker:latest", 8080, "speedtest-tracker", extra_vars=[("Enter Ookla license key", "OOKLA_LICENSE_KEY")]),
+    "filebrowser": lambda: setup_docker_compose("filebrowser", "filebrowser/filebrowser:safe", 8080, "filebrowser"),
+    "karakeep": lambda: setup_docker_compose("karakeep", "cyangze/karakeep:latest", 3060, "karakeep"),
+    "memos": lambda: setup_docker_compose("memos", "ghcr.io/usememos/memos:latest", 5555, "memos"),
+    "firefox-sync": lambda: setup_docker_compose("firefox-sync", "mozilla/syncserver:latest", 5000, "firefox-sync", env_vars=["SYNCSERVER_FORCE_WSGI=1"]),
+}
+
 def main():
     parser = argparse.ArgumentParser(description="makeuros: Customize your Arch Linux system identity")
     parser.add_argument("--name", help="Set the OS Name (e.g. MySuperOS)")
@@ -535,6 +684,13 @@ def main():
     parser.add_argument("--interactive", action="store_true", help="Launch interactive setup menu to customize everything")
     parser.add_argument("--show-specs", action="store_true", help="Display summary of custom OS properties and hardware specifications")
     parser.add_argument("--lsb-release", action="store_true", help="Also generate /etc/lsb-release for Debian/Ubuntu compatibility layers")
+    parser.add_argument("--docker-start", help="Start a Docker container from compose file path")
+    parser.add_argument("--docker-stop", help="Stop a Docker container or service")
+    parser.add_argument("--docker-rm", help="Stop and remove a Docker container or service")
+    
+    for service in SERVICE_DESCRIPTIONS:
+        desc = SERVICE_DESCRIPTIONS.get(service, f"Setup {service}")
+        parser.add_argument(f"--setup-{service}", action="store_true", help=f"Setup {service} Docker container - {desc}")
 
     args = parser.parse_args()
 
@@ -553,6 +709,26 @@ def main():
     if args.interactive:
         run_interactive()
         sys.exit(0)
+
+    # Handle docker commands BEFORE check_root() - they don't require sudo
+    if args.docker_start:
+        docker_compose_action(args.docker_start, "start")
+        sys.exit(0)
+
+    if args.docker_stop:
+        docker_compose_action(args.docker_stop, "stop")
+        sys.exit(0)
+
+    if args.docker_rm:
+        docker_compose_action(args.docker_rm, "rm")
+        sys.exit(0)
+
+    # Handle --setup-* arguments BEFORE check_root() - they don't require sudo
+    for service in SERVICES:
+        arg_name = f"setup_{service.replace('-', '_')}"
+        if getattr(args, arg_name, False):
+            SERVICES[service]()
+            sys.exit(0)
 
     # --color and --id (logo path) both need to know the real user but NOT necessarily root
     # However writing /etc/os-release does. We'll get the user early for fetch updates.
@@ -634,6 +810,7 @@ def main():
 
     if args.hostname:
         set_hostname(args.hostname)
+
 
 if __name__ == "__main__":
     main()
